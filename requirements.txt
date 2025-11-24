@@ -10,3 +10,5 @@ groq-client==0.5.10
 
 # Other
 requests==2.31.0
+
+pip==25.3
