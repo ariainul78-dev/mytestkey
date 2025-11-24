@@ -2,33 +2,36 @@ import streamlit as st
 import json
 from sqlalchemy import create_engine, text
 
-# OpenAI API 키 설정
-OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
-
 # PostgreSQL 연결
 DATABASE_URL = st.secrets["DATABASE_URL"]
 engine = create_engine(DATABASE_URL)
 
 # Streamlit 앱 시작
-st.title("학생의 인공지능 사용 내역(교사용)")
+st.title("학생의 인공지능 사용 내역 (교사용)")
 
 # 비밀번호 입력
 password = st.text_input("비밀번호를 입력하세요", type="password")
 
+# PostgreSQL에서 모든 레코드 가져오기
 def fetch_records():
     try:
         with engine.connect() as conn:
-            result = conn.execute(text("SELECT id, number, name, time FROM qna ORDER BY time DESC"))
+            result = conn.execute(
+                text("SELECT id, number, name, time FROM qna ORDER BY time DESC")
+            )
             records = [{"id": row.id, "number": row.number, "name": row.name, "time": row.time} for row in result]
         return records
     except Exception as e:
         st.error(f"PostgreSQL 오류: {e}")
         return []
 
+# 특정 ID의 레코드 가져오기
 def fetch_record_by_id(record_id):
     try:
         with engine.connect() as conn:
-            result = conn.execute(text("SELECT chat FROM qna WHERE id = :id"), {"id": record_id})
+            result = conn.execute(
+                text("SELECT chat FROM qna WHERE id = :id"), {"id": record_id}
+            )
             row = result.fetchone()
             if row:
                 chat = row.chat
@@ -40,6 +43,7 @@ def fetch_record_by_id(record_id):
         st.error(f"PostgreSQL 오류: {e}")
         return None
 
+# 비밀번호 맞으면 레코드 표시
 if password == st.secrets["PASSWORD"]:
     records = fetch_records()
 
