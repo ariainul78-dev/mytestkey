@@ -1,31 +1,38 @@
 import os
 import json
 from datetime import datetime
-from openai import OpenAI
 import streamlit as st
 from sqlalchemy import create_engine, text
 
-# 환경 변수 로드 (Railway secrets)
-OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
+# -----------------------------
+# 환경 변수 (Railway secrets)
+# -----------------------------
+GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
 DATABASE_URL = st.secrets["DATABASE_URL"]
-MODEL = 'gpt-4o'
+MODEL = "llama3.1-8b-instant"
 
-# OpenAI API 설정
-client = OpenAI(api_key=OPENAI_API_KEY)
+# Groq Client
+from groq_client import GroqClient
+client = GroqClient(api_key=GROQ_API_KEY)
 
 # PostgreSQL 연결
 engine = create_engine(DATABASE_URL)
 
-# Streamlit 페이지 기본 설정
+# Streamlit 페이지 설정
 st.set_page_config(page_title="수학여행 도우미", page_icon="🧠", layout="wide")
 
+# -----------------------------
 # 초기 프롬프트
+# -----------------------------
 initial_prompt = '''
 너는 '수학여행 도우미'라는 이름의 챗봇으로, 고등학생의 수학 문제 해결을 돕는 역할을 수행한다.
-... (원래 prompt 그대로 사용)
+...
+(원래 prompt 그대로 사용)
 '''
 
+# -----------------------------
 # 세션 상태 초기화
+# -----------------------------
 if "messages" not in st.session_state:
     st.session_state["messages"] = []
 if "chat_ended" not in st.session_state:
@@ -33,7 +40,9 @@ if "chat_ended" not in st.session_state:
 if "user_said_finish" not in st.session_state:
     st.session_state["user_said_finish"] = False
 
+# -----------------------------
 # PostgreSQL 저장 함수
+# -----------------------------
 def save_to_postgres(all_data):
     number = st.session_state.get('user_number', '').strip()
     name = st.session_state.get('user_name', '').strip()
@@ -60,20 +69,23 @@ def save_to_postgres(all_data):
         st.error(f"PostgreSQL 저장 중 오류가 발생했습니다: {e}")
         return False
 
-# GPT 응답 생성 함수
-def get_chatgpt_response(prompt):
+# -----------------------------
+# Groq GPT 응답 생성 함수
+# -----------------------------
+def get_groq_response(prompt):
     messages_for_api = [{"role": "system", "content": initial_prompt}] + st.session_state["messages"] + [{"role": "user", "content": prompt}]
-    response = client.chat.completions.create(
+    response = client.chat_completion.create(
         model=MODEL,
-        messages=messages_for_api,
+        messages=messages_for_api
     )
     answer = response.choices[0].message.content
-
     st.session_state["messages"].append({"role": "user", "content": prompt})
     st.session_state["messages"].append({"role": "assistant", "content": answer})
     return answer
 
+# -----------------------------
 # 세션 상태 초기화 함수
+# -----------------------------
 def reset_session_state():
     for key in list(st.session_state.keys()):
         if key not in ["user_number", "user_name"]:
@@ -83,7 +95,9 @@ def reset_session_state():
     st.session_state["user_said_finish"] = False
     st.session_state["feedback_saved"] = False
 
-# 페이지 1 ~ 3: 학번/이름 입력, 안내, GPT 대화
+# -----------------------------
+# 페이지 1 ~ 3
+# -----------------------------
 def page_1():
     st.title("수학여행 도우미 챗봇 M1")
     st.write("학번과 이름을 입력한 뒤 '다음' 버튼을 눌러주세요.")
@@ -120,14 +134,14 @@ def page_3():
     with col1:
         if st.button("전송"):
             if user_input.strip():
-                assistant_response = get_chatgpt_response(user_input)
+                assistant_response = get_groq_response(user_input)
                 st.session_state["recent_message"] = {"user": user_input, "assistant": assistant_response}
                 st.session_state["user_input_temp"] = ""
                 st.rerun()
     with col2:
         if st.button("마침"):
             final_input = "마침"
-            assistant_response = get_chatgpt_response(final_input)
+            assistant_response = get_groq_response(final_input)
             st.session_state["recent_message"] = {"user": final_input, "assistant": assistant_response}
             st.session_state["chat_ended"] = True
             st.session_state["user_said_finish"] = True
@@ -139,7 +153,9 @@ def page_3():
         else:
             st.write(f"**수학여행 도우미:** {message['content']}")
 
-# 페이지 4: 피드백 생성 및 PostgreSQL 저장
+# -----------------------------
+# 페이지 4
+# -----------------------------
 def page_4():
     st.title("수학여행 도우미의 제안")
     st.write("수학여행 도우미가 대화 내용을 정리 중입니다.")
@@ -148,7 +164,7 @@ def page_4():
         prompt = f"학생과 수학여행 도우미의 대화 기록:\n{chat_history}\n---\n대화 요약 및 피드백 생성"
     else:
         prompt = "대화가 종료되지 않았습니다."
-    response = client.chat.completions.create(
+    response = client.chat_completion.create(
         model=MODEL,
         messages=[{"role": "system", "content": prompt}]
     )
@@ -163,7 +179,9 @@ def page_4():
         else:
             st.error("저장 실패")
 
+# -----------------------------
 # 메인 로직
+# -----------------------------
 if "step" not in st.session_state:
     st.session_state["step"] = 1
 
