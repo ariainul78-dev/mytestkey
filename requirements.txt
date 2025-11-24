@@ -3,10 +3,10 @@ streamlit==1.28.0
 
 # Database
 sqlalchemy==2.0.22
-psycopg2-binary==2.9.6
+psycopg2-binary==2.9.5
 
-# Groq Client (free, model 8B)
-groq-client==0.5.9
+# Groq Client
+groq-client==0.5.10
 
 # Other
 requests==2.31.0
